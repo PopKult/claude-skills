@@ -1,0 +1,7 @@
+{
+  "name": "popkult-skills",
+  "description": "Internal Claude Code skills for the PopKult Go microservices workflow.",
+  "author": {
+    "name": "PopKult"
+  }
+}
