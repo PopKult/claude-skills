@@ -1,6 +1,6 @@
 ---
 name: add-mobile-feature
-description: Add new functionality to an EXISTING PopKult Kotlin Multiplatform Mobile (KMM) app — reads the repo's own business.md and technical doc first, interviews the user until the request is genuinely clear (explicitly asking for a UI design when a UI module is involved, and for the analytics events the feature should send), plans the shared/platform module split as a proposal the user can push back on before it's final, demonstrates a test plan before writing any code, then implements the change as small reviewable commits (4-6 files, 50-100 changed lines each) with a stop-and-review gate after every commit. Use this whenever the user wants to add, implement, build, or extend a feature/screen/flow in a mobile app that already exists — phrases like "add X to the app", "implement Y in the mobile app", "the app needs to support Z" — even if they don't name this skill explicitly. Do NOT use this for scaffolding a brand-new mobile app (no init-mobile-app skill exists yet — ask the user how they want that done) or for pure bug fixes with no new functionality.
+description: Add new functionality to an EXISTING PopKult Kotlin Multiplatform Mobile (KMM) app — reads the repo's own business.md and technical doc first, interviews the user until the request is genuinely clear (explicitly asking for a UI design when a UI module is involved, for the analytics events the feature should send, and for how the feature is onboarded to users), plans the shared/platform module split as a proposal the user can push back on before it's final, demonstrates a test plan before writing any code, then implements the change as small reviewable commits (4-6 files, 50-100 changed lines each) with a stop-and-review gate after every commit. Use this whenever the user wants to add, implement, build, or extend a feature/screen/flow in a mobile app that already exists — phrases like "add X to the app", "implement Y in the mobile app", "the app needs to support Z" — even if they don't name this skill explicitly. Do NOT use this for scaffolding a brand-new mobile app (no init-mobile-app skill exists yet — ask the user how they want that done) or for pure bug fixes with no new functionality.
 ---
 
 # add-mobile-feature
@@ -44,7 +44,7 @@ doc describes, say so now rather than silently reconciling it later.
 
 Open-ended interview. Figure out what the user actually wants — keep
 asking follow-ups until you could correctly describe the feature back to
-someone who hasn't seen this conversation. Two things to ask for
+someone who hasn't seen this conversation. Three things to ask for
 explicitly, every time they apply, rather than waiting for the user to
 volunteer them:
 
@@ -61,15 +61,27 @@ volunteer them:
   track analytics for anything like this yet, ask whether this feature
   should be the first, and if so, confirm the convention before using it
   anywhere.
+- **Onboarding** for the feature — how a user is introduced to it the
+  first time they'd encounter it: nothing (it's discoverable on its
+  own), a one-time tooltip/coach-mark, a modal/walkthrough, an entry in
+  an existing onboarding flow, or a changelog/"what's new" surface,
+  whichever the app already has precedent for. If the feature changes
+  existing behavior rather than adding something new, ask whether
+  returning users need to be told at all. Don't assume "none" just
+  because the user didn't mention it.
 
 ## Phase 2 — plan the modules, converge with the user
 
 Sketch, at a conceptual level, which modules the feature touches and how
 they fit together — e.g. "a new use case in the shared domain module,
 a repository method backed by a new network call, one new screen in the
-Android UI module, its iOS counterpart, and an analytics event fired on
-submit." The goal is that the user understands the shape of the change,
-not a file-by-file spec — save the detail for Phase 3.
+Android UI module, its iOS counterpart, a coach-mark shown the first
+time that screen opens, and an analytics event fired on submit." The
+goal is that the user understands the shape of the change, not a
+file-by-file spec — save the detail for Phase 3. Include the onboarding
+mechanism from Phase 1 as its own piece of the plan, not folded silently
+into the UI module — it's usually its own small piece of state (a
+"seen this before" flag) and its own commit.
 
 If the user pushes back or asks to change something, don't just comply —
 weigh it against business.md/technical doc and what you already know
@@ -103,6 +115,10 @@ the coverage plan. Typical shape for a KMM feature:
 - **Analytics** — a test (or explicit manual-check note, if the repo has
   no precedent for testing analytics calls) confirming each event from
   Phase 1 fires on the right trigger with the right payload.
+- **Onboarding** — if Phase 1 settled on a coach-mark/modal/flow entry,
+  a test that it shows exactly once (the "seen" flag persists and is
+  respected) and that dismissing/completing it behaves correctly. If it
+  settled on "none," no coverage needed here.
 
 Get the user's go-ahead on this coverage before Phase 4. If the repo
 has no test setup at all for one of these layers, say so and ask whether
