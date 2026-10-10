@@ -84,6 +84,16 @@ Break the implementation into phases. Per phase:
   phases — a phase that would require breaking a migration from its
   handler, or an interface from its only implementation, to hit the cap
   is sliced wrong; find a different cut, don't ship a broken phase.
+- **Observability is part of the feature, not a follow-up.** New use
+  cases log per §5 of the standards: one `Info` (IDs/counts only) when a
+  meaningful state change completes, `Warn` for rejected or
+  degraded-but-handled input, `Error` once where an error is finally
+  handled, always via the `*Context` slog variants so `trace_id` attaches.
+  Never log tokens, passwords, emails, phone numbers, transcripts/answers
+  or request/response bodies (use `secure.String` or omit). New Kafka
+  events: write them through `outbox.Write` with the request's `ctx` (it
+  stores the trace context), and make consumers run the handler in a span
+  continued from the message headers (`kafkamw.Extract`).
 - **Must leave the repo buildable and tests passing** on its own —
   `go build ./...` and `go test ./...` clean at the end of every single
   phase, not just at the end of the whole feature.
@@ -96,6 +106,17 @@ this feature needs:
 - **`schema` changes**: a new/changed proto RPC, message, or GraphQL
   field. Additive-only (§2.1/§2.3) — never edit or remove a released
   field/RPC in place.
+- **Database migrations**: prod rolls out as a canary (old and new
+  versions share the database for a while, and a rollback reverts code but
+  never the schema), so every migration MUST work with the *previous*
+  release's code (`docs/microservice-standards.md` §7, expand → contract).
+  Add columns nullable or with a default; to rename or retype, add the new
+  column, write both, switch reads, and drop the old one in a *later*
+  release (its own phase/PR); backfill before adding `NOT NULL`. If the
+  feature as asked needs a breaking change, split it into expand and
+  contract releases and say so in the plan — do not ship it as one
+  migration. Migrations are copied out of the release image by the prod
+  migrate Job, so they live in `migrations/` as usual.
 - **`prod-setup` changes**: a new env var in the service's `ConfigMap`,
   a new k8s resource.
 - **`local-setup` changes**: a new env var, a new Kafka topic, etc. in
