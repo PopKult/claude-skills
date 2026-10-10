@@ -213,6 +213,16 @@ git add -A && git commit -m "Document <name>'s business requirements"
 
 ## Phase 5 — register in prod-setup
 
+Note what the copied manifests already give the new service, so you don't
+re-add or remove it: the server is an **Argo Rollout** (canary 50 percent,
+Prometheus error-ratio analysis, manual Resume), pods carry the
+`prometheus.io/scrape` annotations, the migrate Job is an Argo Sync hook
+that copies `/migrations` out of the release image (so the service's
+Dockerfile must `COPY` them — the template's does), `POSTGRES_HOST` points
+at `postgres` (the data-gateway) and `KAFKA_BROKERS` at the three broker
+addresses. Also add the service to `argocd/applications.yaml`
+and its scrape jobs to `local-setup/observability/prometheus/prometheus.yml`.
+
 ```bash
 scripts/copy-and-rename.sh <workspace>/prod-setup/services/service-template <workspace>/prod-setup/services/<name> service-template <name>
 cd <workspace>/prod-setup
