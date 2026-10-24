@@ -11,6 +11,7 @@ skill under `skills/`.
 | [`init-service`](skills/init-service/SKILL.md) | Scaffolds a brand-new service from `github.com/PopKult/service-template`, registers it in `prod-setup` and `local-setup`, and interviews the user to write a business-requirements doc into the new service's README. |
 | [`init-frontend`](skills/init-frontend/SKILL.md) | Scaffolds a brand-new admin frontend for an existing service — a React + Vite + TS + Apollo Client SPA over that service's GraphQL surface. Vendors the service's schema from `schema` for typed codegen, registers the board in `prod-setup` (nginx k8s) and `local-setup`, interviews the user for which abstractions get views, then implements them via `add-feature`'s gated phases. |
 | [`add-feature`](skills/add-feature/SKILL.md) | Adds new functionality to an existing service: reads its standards doc + README, interviews until the request is clear, plans it as small gated phases (≤6 files/≤150 lines each), implements them one at a time on a feature branch, and touches `schema`/`prod-setup`/`local-setup` when needed. |
+| [`canary-release`](skills/canary-release/SKILL.md) | Drives a prod canary release (Argo Rollouts) from merge to full rollout: watches the automatic analysis, prints a canary-vs-stable health snapshot from Prometheus (errors, p95, req/s, memory, restarts, log errors), says what to check by hand for that service, and promotes or aborts only after an explicit yes. |
 
 ## Installing
 
