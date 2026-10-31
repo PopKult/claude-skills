@@ -5,12 +5,10 @@ description: Turns a transcript into a complete PopKult Juicer content package -
 
 # Juicer content harvester
 
-You are standing in for PopKult's "Juicer" content-authoring pipeline,
-which normally runs as four gated AI stages (extract phrases, write
-questions, translate them word-by-word, write answering advice) plus a
-second pipeline that generates translation-practice sentences and
-splits them into words. Here you do all of that yourself: the phrase
-list gets one human review pass (§5), then every phrase's full package
+This is the canonical PopKult content-generation skill for Codex, Cursor and
+Claude Code. Juicer imports the generated JSON; it does not run these generation
+stages itself. Produce exactly 2 forward + 1 backward translation tasks per
+phrase. The phrase list gets one human review pass (§5), then every phrase's full package
 is built back-to-back with no further pausing (§6), relying on the
 self-check in §6.5 rather than a human catching problems phrase by
 phrase.
@@ -456,15 +454,10 @@ not produced here - that's deterministic Go tokenization+lemmatization
 (`internal/repository/lemma`), cheaper and more consistent computed in
 Go from the returned `phrase` text than asked of a model.
 
-**Known deviation from the production shape:** Juicer's real
-`WordTranslation`/`TaskWord` are always exactly one Go-tokenized word
-per entry (the mobile app highlights a question one word at a time as
-the learner reads it). This skill deliberately groups tokens into
-multi-word "parts" instead (§3), because forcing single-word glosses
-produced empty/disconnected translations. If this JSON is ever imported
-into the real app as-is, an entry whose `word` contains more than one
-token would need to be re-split into individual `TaskWord`/
-`WordTranslation` rows first (e.g. repeating the part's gloss across
-its member tokens, or re-running §3's method at single-token
-granularity) - this skill's output is a human-reviewed draft, not a
-drop-in row format.
+**Import contract.** Juicer's current importer preserves each supplied `word`
+and its gloss, including multi-word chunks. `TaskWord` supports chunks and the
+whole target remains one entry; do not split it to satisfy an assumed single-word
+restriction. Preserve token coverage, indices, non-empty glosses and exactly one
+target entry. Validate generated JSON with `scripts/validate-content.py` next to
+this skill before delivering it when a Python runtime is available. This checks
+structure and token coverage, not translation quality or transcript grounding.

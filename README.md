@@ -1,39 +1,72 @@
-# claude-skills
+# PopKult Agent Skills
 
-Internal Claude Code skills for the PopKult Go microservices workflow.
-One installable plugin (`.claude-plugin/plugin.json`), one directory per
-skill under `skills/`.
+Shared Agent Skills for Codex, Cursor and Claude Code. The GitHub repository
+keeps its existing name `PopKult/claude-skills` so existing clones and plugin
+installations keep working. Each skill has one source under skills/.
 
-## Skills
-
-| Skill | What it does |
+| Skill | Use |
 |---|---|
-| [`init-service`](skills/init-service/SKILL.md) | Scaffolds a brand-new service from `github.com/PopKult/service-template`, registers it in `prod-setup` and `local-setup`, and interviews the user to write a business-requirements doc into the new service's README. |
-| [`init-frontend`](skills/init-frontend/SKILL.md) | Scaffolds a brand-new admin frontend for an existing service — a React + Vite + TS + Apollo Client SPA over that service's GraphQL surface. Vendors the service's schema from `schema` for typed codegen, registers the board in `prod-setup` (nginx k8s) and `local-setup`, interviews the user for which abstractions get views, then implements them via `add-feature`'s gated phases. |
-| [`add-feature`](skills/add-feature/SKILL.md) | Adds new functionality to an existing service: reads its standards doc + README, interviews until the request is clear, plans it as small gated phases (≤6 files/≤150 lines each), implements them one at a time on a feature branch, and touches `schema`/`prod-setup`/`local-setup` when needed. |
-| [`canary-release`](skills/canary-release/SKILL.md) | Drives a prod canary release (Argo Rollouts) from merge to full rollout: watches the automatic analysis, prints a canary-vs-stable health snapshot from Prometheus (errors, p95, req/s, memory, restarts, log errors), says what to check by hand for that service, and promotes or aborts only after an explicit yes. |
+| [init-service](skills/init-service/SKILL.md) | Scaffold, register and implement a new Go service |
+| [init-frontend](skills/init-frontend/SKILL.md) | Create a React/GraphQL operator frontend |
+| [add-feature](skills/add-feature/SKILL.md) | Extend an existing Go service or admin frontend |
+| [add-mobile-feature](skills/add-mobile-feature/SKILL.md) | Extend the KMM application |
+| [canary-release](skills/canary-release/SKILL.md) | Inspect and promote/abort a production canary with explicit authorization |
+| [juicer-harvest-content](skills/juicer-harvest-content/SKILL.md) | Generate content with **2 forward + 1 backward** tasks per phrase |
 
-## Installing
+## Install for local Codex and Cursor
 
-Add this repo as a plugin so `init-service` (and anything added here
-later) is available regardless of which repo you're working in:
+From this checkout:
 
+```bash
+python3 scripts/install-skills.py
 ```
-/plugin marketplace add PopKult/claude-skills
-/plugin install popkult-skills
+
+This links each skill into ~/.agents/skills/ and preserves its bundled scripts
+and relative references. Existing unrelated skills/files are never overwritten;
+conflicts are reported before making changes. Running it again is safe. Moving
+this checkout requires reinstalling after removing the old links explicitly.
+Restart/reload the agent session after installation. Local home-directory links
+are for local agents; cloud/remote agents need their own checkout and installation.
+
+For a project-scoped installation use an absolute target:
+
+```bash
+python3 scripts/install-skills.py --target /path/to/repo/.agents/skills
 ```
 
-Or, for local development on the skill itself, point Claude Code at a
-local checkout of this repo via your plugin settings instead of
-installing from the marketplace.
+Keep machine-specific links out of git. For a shared/cloud setup vendor skills
+under .agents/skills/ and the shared references under .agents/references/ together,
+or install from this repository in that environment. When following links from
+an installed symlink, resolve its real source path first. A clone in a sibling folder is not discovered automatically.
 
-## Adding a new skill
+Codex supports explicit $add-feature invocation; Cursor offers /add-feature in
+Agent chat. Both can also select skills by their descriptions. Always-on repository
+guidance belongs in each repo's AGENTS.md, not in a manually invoked skill.
 
-Follow the format in `skills/init-service/` — a `SKILL.md` with YAML
-frontmatter (`name`, `description`) plus imperative markdown
-instructions, and a `scripts/` subdirectory for anything genuinely
-repeated and mechanical (not for logic that needs judgment — that stays
-in the SKILL.md instructions themselves). See the description field
-guidance in `skills/init-service/SKILL.md`'s frontmatter for how
-triggering works: be specific about *when* to use the skill, not just
-what it does.
+Official references: [Codex skills](https://learn.chatgpt.com/docs/build-skills),
+[Cursor skills](https://cursor.com/docs/skills),
+[repository guidance](https://learn.chatgpt.com/docs/customization/overview).
+
+## Claude Code compatibility
+
+The existing .claude-plugin/plugin.json and skills/ layout remain available.
+Use your existing Claude Code plugin installation pointed at this repository.
+Instructions no longer require Claude's Skill tool or a provider-specific namespace.
+
+## Workflow and maintenance
+
+Development skills share [development-workflow.md](references/development-workflow.md):
+feature branches, coherent commits, relevant checks and completion of the agreed
+scope without per-commit approval pauses. Push/PR work follows the user's request;
+production actions keep their explicit authorization boundary. The harvester keeps
+its phrase-list review before batch generation.
+
+Edit the canonical harvester here. Juicer's docs link here instead of maintaining
+another implementation. Its import accepts multi-word gloss chunks and assigns
+fresh server IDs. The validator checks JSON shape and coverage; linguistic quality
+and grounded phrase selection still need review.
+
+Run python3 scripts/check-skills.py and python3 -m unittest discover -s tests -v
+before opening a PR. It validates skill
+metadata, local Markdown references and bundled script syntax without deployment
+access or third-party dependencies. Exercise changed scripts in temporary folders.
