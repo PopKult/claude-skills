@@ -1,6 +1,6 @@
 {
   "name": "popkult-skills",
-  "description": "Internal Claude Code skills for the PopKult Go microservices workflow.",
+  "description": "Shared PopKult Agent Skills for Codex, Cursor and Claude Code.",
   "author": {
     "name": "PopKult"
   }

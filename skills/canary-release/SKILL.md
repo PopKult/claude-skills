@@ -1,6 +1,6 @@
 ---
 name: canary-release
-description: Drive a PopKult canary release on the prod k3s cluster (Argo Rollouts) from merge to full rollout - watches the rollout and its automatic Prometheus analysis, prints a canary-vs-stable health snapshot (error ratio, p95 latency, req/s, memory, restarts, log errors), tells the person exactly what to check by hand for that service, and only after an explicit yes promotes the release or aborts it. Use this whenever the user says a prod-setup PR with a new image tag is merged and asks to roll it out, promote, resume or continue a canary, abort or roll back a release, or asks "how is the canary doing" for juicer, mobile-api, progress-calculator, task-grader or service-template. Do NOT use it to change rollout manifests or analysis templates (that is a prod-setup change) and never use it for Promote-Full.
+description: Inspect PopKult production Argo Rollouts, compare canary and stable health, and promote or abort with explicit authorization. Use for release monitoring and rollout actions; changing manifests belongs in prod-setup.
 ---
 
 # canary-release
@@ -8,8 +8,10 @@ description: Drive a PopKult canary release on the prod k3s cluster (Argo Rollou
 A release is: a PR in `prod-setup` bumps an image tag, the user merges it,
 Argo CD syncs, and the service's Rollout starts a canary. This skill babysits
 that rollout and gets a human decision at the pause. It changes the cluster
-only through `promote` and `abort`, and only after the user says so in this
-conversation.
+only through `promote` and `abort`, and only within explicit authorization in this conversation. A request to
+inspect a canary authorizes read-only inspection; a request to abort a named
+release authorizes that abort. Do not ask again for an action already authorized.
+Before a new promotion decision, show the health snapshot and manual-check result.
 
 ## 0. Preflight
 
@@ -17,7 +19,8 @@ conversation.
 - `export KUBECONFIG=<prod-setup>/ansible/kubeconfig/popkult.yaml` (the prod cluster kubeconfig).
   Confirm with `kubectl get rollout -n popkult`.
 - Ask which service if the user did not say. Rollout names: `juicer`,
-  `mobile-api`, `progress-calculator`, `task-grader`, `service-template`.
+  `mobile-api`, `progress-calculator`, `task-grader`.
+  `service-template` is an undeployed pattern; do not assume a live Rollout exists.
 
 ## 1. How the rollout is built (so you can explain it)
 
@@ -37,13 +40,17 @@ Look at the merged prod-setup change (`git log -3 -- services/<service>` in
 `prod-setup`) and the service repo's commits between the old and new tag, so
 you can say in a sentence what changed, whether there is a migration (the
 `<service>-migrate-*` Job runs before the rollout), and whether config or
-secrets changed with it. Pods do not restart on ConfigMap changes - if the
+secrets changed with it. The outbox relay is an ordinary Deployment, not part
+of the server's paused canary: check its rollout, logs and Kafka error/lag metrics
+separately. Kafka consumer assignment and long-lived gRPC connections do not
+promise an exact 50% request split. task-grader's analysis watches gRPC, so also
+check its Kafka grading path and GraphQL operator API where relevant.
+Pods do not restart on ConfigMap changes - if the
 release depends on a ConfigMap, say that explicitly.
 
 ## 3. Watch until the pause
 
-1. Run the snapshot: `python3 scripts/canary-status.py <rollout>` (path
-   relative to this skill). It is read-only: it opens a short-lived
+1. Run the snapshot: `python3 <skill-directory>/scripts/canary-status.py <rollout>` (resolve the absolute skill directory first). It is read-only: it opens a short-lived
    port-forward to Prometheus on 127.0.0.1 and closes it at exit.
 2. Also `kubectl argo rollouts get rollout <rollout> -n popkult` for the tree.
 3. The analysis takes about 5 minutes. Poll every ~60s (snapshot or `get`);
@@ -52,8 +59,8 @@ release depends on a ConfigMap, say that explicitly.
    - **Degraded / aborted / analysis Failed** -> §6, without asking.
    - A canary pod in CrashLoopBackOff or not ready for >3 min -> show
      `kubectl logs` / `describe` and recommend abort.
-   A canary pod with 1-2 restarts in the first seconds is normal: a new pod
-   cannot reach Postgres for its first moments.
+   Investigate startup restarts; initial network-policy programming may delay
+   Postgres access, but do not assume every restart is harmless.
 
 ## 4. At the pause: show the numbers, say what to look at
 
@@ -74,15 +81,16 @@ If req/s on the canary is ~0 the numbers are meaningless: say so plainly.
 Then the **manual check by service** (tell the user to do it now, while old
 and new pods serve side by side):
 
-- `juicer` (admin): create a harvest draft, open it, edit, paste a transcript, a few times in a row. During the mixed window a draft stored in one pod's memory may "not be found" on the other - since drafts live in Redis this must not happen; if it does, abort.
+- `juicer` (admin): create a harvest draft, open it, edit, paste a transcript, a few times in a row. During the mixed window a draft stored in one pod's memory may "not be found" on the other - since drafts live in Redis this must not happen; if it does, recommend abort
+  and execute it only if authorized.
 - `mobile-api`: log in from the app (and a fresh Google login), open a lesson list. A bad JWKS shows as UNAUTHENTICATED - check `rejected` reasons in the pod logs.
 - `progress-calculator` / `task-grader`: ask the user to submit one task / view progress in the app, then check the canary pod logs for that request.
-- `service-template`: nothing user-visible; rely on the numbers.
 
 ## 5. Ask, then act
 
-Ask once: "Promote <service> to 100%?" with the summary (numbers, manual check
-result). Only on an explicit yes:
+Present the summary (numbers and manual-check result). If promotion has not
+already been explicitly authorized, ask once: "Promote <service> to 100%?"
+Act only within authorization for this specific promotion:
 
 ```
 kubectl argo rollouts promote <rollout> -n popkult
@@ -110,7 +118,7 @@ An aborted Rollout stays "Degraded" until the tag is fixed or reverted in git;
 Argo CD selfHeal will not retry it by itself. To retry the same version:
 `kubectl argo rollouts retry rollout <rollout> -n popkult`. Tell the user the
 fix goes through a prod-setup PR (revert the tag or bump to a fixed one) -
-do not push it yourself without their approval.
+push/open a PR only when the user has authorized that work.
 
 Database migrations ran before the canary and are not rolled back; this is
 why migrations must stay backward compatible (see `add-feature`).
